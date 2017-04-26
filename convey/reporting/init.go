@@ -1,19 +1,35 @@
 package reporting
 
 import (
-	"os"
+	"bytes"
+	"os/exec"
 	"runtime"
-	"strings"
 )
 
 func init() {
-	if !isColorableTerminal() {
-		monochrome()
-	}
+	redColor = tput("setaf", "1")
+	greenColor = tput("setaf", "2")
+	yellowColor = tput("setaf", "3")
+	resetColor = tput("sgr0")
 
 	if runtime.GOOS == "windows" {
 		success, failure, error_ = dotSuccess, dotFailure, dotError
 	}
+}
+
+func tput(args ...string) string {
+	buf := &bytes.Buffer{}
+
+	cmd := exec.Command("tput", args...)
+	cmd.Stdout = buf
+
+	err := cmd.Run()
+	if err != nil {
+		// If there was an error, ignore it and proceed in monochrome
+		return ""
+	}
+
+	return buf.String()
 }
 
 func BuildJsonReporter() Reporter {
@@ -60,10 +76,7 @@ var (
 )
 
 var (
-	greenColor  = "\033[32m"
-	yellowColor = "\033[33m"
-	redColor    = "\033[31m"
-	resetColor  = "\033[0m"
+	greenColor, yellowColor, redColor, resetColor string
 )
 
 var consoleStatistics = NewStatisticsReporter(NewPrinter(NewConsole()))
@@ -76,14 +89,6 @@ func PrintConsoleStatistics()    { consoleStatistics.PrintSummary() }
 // otherwise not needed in the test output.
 func QuietMode() {
 	success, failure, error_, skip, dotSuccess, dotFailure, dotError, dotSkip = "", "", "", "", "", "", "", ""
-}
-
-func monochrome() {
-	greenColor, yellowColor, redColor, resetColor = "", "", "", ""
-}
-
-func isColorableTerminal() bool {
-	return strings.Contains(os.Getenv("TERM"), "color")
 }
 
 // This interface allows us to pass the *testing.T struct
